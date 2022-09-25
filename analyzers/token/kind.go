@@ -1,0 +1,39 @@
+package token
+
+type Kind byte
+
+const (
+	IDENTIFIER Kind = iota
+	NEWLINE
+	NUMBER
+	CHAR
+	STRING
+
+	IF
+	ELSE
+	THEN
+	FUNCTION
+	WHILE
+	VAR
+
+	OP_PLUS
+	OP_MULTI
+	OP_MINUS
+	OP_DIVIDE
+	OP_EQ
+	OP_NOTEQ
+	OP_LT
+	OP_LTE
+	OP_GT
+	OP_GTE
+
+	ASSIGN
+	SEMICOLON
+	L_BRACKET
+	R_BRACKET
+	L_BRACE
+	R_BRACE
+
+	ERROR
+	EOF
+)

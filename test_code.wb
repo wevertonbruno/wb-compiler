@@ -1,0 +1,15 @@
++- */
+# This is a comment line
++- */ >>= =
+"Hello World!"+-*
+1234
+67.99
+func main(){
+    int a = 0
+    int b = 10
+
+    while a < b {
+        print(a)
+        a = a + 1
+    }
+}
