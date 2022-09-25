@@ -1,12 +1,8 @@
-+- */
-# This is a comment line
-+- */ >>= =
-"Hello World!"+-*
-1234
-67.99
+# Example Source Code
+
 func main(){
-    int a = 0
-    int b = 10
+    var a : Int = 0
+    var b : Char = 10
 
     while a < b {
         print(a)
