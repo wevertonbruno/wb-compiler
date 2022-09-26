@@ -1,8 +1,8 @@
 package token
 
 import (
-	"compiler/analyzers/reader"
 	"fmt"
+	"github.com/wevertonbruno/wb-compiler/analyzers/reader"
 )
 
 type Token struct {

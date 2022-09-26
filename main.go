@@ -1,9 +1,9 @@
 package main
 
 import (
-	"compiler/analyzers"
-	"compiler/analyzers/token"
 	"fmt"
+	"github.com/wevertonbruno/wb-compiler/analyzers"
+	"github.com/wevertonbruno/wb-compiler/analyzers/token"
 )
 
 func main() {

@@ -1,9 +1,9 @@
 package analyzers
 
 import (
-	"compiler/analyzers/reader"
-	"compiler/analyzers/token"
 	"fmt"
+	"github.com/wevertonbruno/wb-compiler/analyzers/reader"
+	"github.com/wevertonbruno/wb-compiler/analyzers/token"
 )
 
 const (
