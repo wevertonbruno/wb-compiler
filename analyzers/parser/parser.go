@@ -157,9 +157,9 @@ func (p *Parser) Parse() *ast.Prog {
 	prog := newProgNode()
 	p.ignoreNewLines()
 	for !p.currentToken.Match(token.EOF) {
-		stmt := p.parseStatement()
+		stmt := p.parseBlockItem()
 		if stmt != nil {
-			prog.Statements = append(prog.Statements, stmt)
+			prog.BlockItems = append(prog.BlockItems, stmt)
 		}
 		p.nextToken(true)
 	}
@@ -169,16 +169,25 @@ func (p *Parser) Parse() *ast.Prog {
 
 func newProgNode() *ast.Prog {
 	return &ast.Prog{
-		Statements: []ast.Stmt{},
+		BlockItems: []ast.BlockItem{},
+	}
+}
+
+func (p *Parser) parseBlockItem() ast.BlockItem {
+	switch p.currentToken.Kind {
+	case token.VAR:
+		return p.parseVarStatement()
+	default:
+		return p.parseStatement()
 	}
 }
 
 func (p *Parser) parseStatement() ast.Stmt {
 	switch p.currentToken.Kind {
-	case token.VAR:
-		return p.parseVarStatement()
 	case token.RETURN:
 		return p.parseReturnStatement()
+	case token.L_BRACE:
+		return p.parseBlockStatement()
 	default:
 		return p.parseExpressionStatement()
 	}
@@ -215,17 +224,12 @@ func (p *Parser) peekSeparator() bool {
 		p.peekToken.Match(token.NEWLINE)
 }
 
-func (p *Parser) parseVarStatement() *ast.DeclStatement {
-	stmt := &ast.DeclStatement{Token: p.currentToken}
+func (p *Parser) parseVarStatement() *ast.Declaration {
+	stmt := &ast.Declaration{Token: p.currentToken}
 	p.expectedPeek(token.IDENTIFIER)
 	stmt.ID = &ast.Identifier{Token: p.currentToken, Value: p.currentToken.Spelling}
-	p.expectedPeek(token.COLON)
-	p.nextToken(false)
-	if p.checkPeek(token.INTEGER) || p.checkPeek(token.DECIMAL) || p.checkPeek(token.STRING) || p.checkPeek(token.CHAR) {
-		p.nextToken(false)
-		stmt.Type = p.currentToken
-	}
 	p.expectedPeek(token.ASSIGN)
+	p.nextToken(false)
 	stmt.Value = p.parseExpression(LOWEST)
 	if p.checkSeparator() {
 		p.nextToken(false)
@@ -326,6 +330,7 @@ func (p *Parser) parseGroupedExpr() ast.Expr {
 	p.nextToken(false)
 	expr := p.parseExpression(LOWEST)
 	p.expectedPeek(token.R_BRACKET)
+	p.nextToken(false)
 	return expr
 }
 
@@ -334,11 +339,9 @@ func (p *Parser) parseIfExpr() ast.Expr {
 	p.nextToken(false)
 
 	ifExpr.Condition = p.parseExpression(LOWEST)
-	p.expectedPeek(token.L_BRACE)
-	ifExpr.TrueBlockCondition = p.parseBlockStatement()
+	ifExpr.TrueBlockCondition = p.parseStatement()
 	if p.checkPeek(token.ELSE) {
 		p.nextToken(false)
-		p.expectedPeek(token.L_BRACE)
 		ifExpr.FalseBlockCondition = p.parseBlockStatement()
 	}
 
@@ -347,10 +350,10 @@ func (p *Parser) parseIfExpr() ast.Expr {
 
 func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	block := &ast.BlockStatement{Token: p.currentToken}
-	block.Statements = []ast.Stmt{}
+	block.Statements = []ast.BlockItem{}
 	p.nextToken(true)
 	for !p.check(token.R_BRACE) && !p.check(token.EOF) {
-		stmt := p.parseStatement()
+		stmt := p.parseBlockItem()
 		if stmt != nil {
 			block.Statements = append(block.Statements, stmt)
 		}

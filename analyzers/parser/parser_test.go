@@ -40,14 +40,14 @@ func TestParsingInfixExpressions(t *testing.T) {
 		l := lexer.NewLexer(r)
 		p := NewParser(l)
 		program := p.Parse()
-		if len(program.Statements) != 1 {
-			t.Fatalf("program.Statements does not contain %d statements. got=%d\n",
-				1, len(program.Statements))
+		if len(program.BlockItems) != 1 {
+			t.Fatalf("program.BlockItems does not contain %d statements. got=%d\n",
+				1, len(program.BlockItems))
 		}
-		stmt, ok := program.Statements[0].(*ast.ExprStatement)
+		stmt, ok := program.BlockItems[0].(*ast.ExprStatement)
 		if !ok {
-			t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T",
-				program.Statements[0])
+			t.Fatalf("program.BlockItems[0] is not ast.ExpressionStatement. got=%T",
+				program.BlockItems[0])
 		}
 		exp, ok := stmt.Expr.(*ast.InfixExpression)
 		if !ok {
@@ -80,14 +80,14 @@ func TestParsingPrefixExpressions(t *testing.T) {
 		l := lexer.NewLexer(r)
 		p := NewParser(l)
 		program := p.Parse()
-		if len(program.Statements) != 1 {
-			t.Fatalf("program.Statements does not contain %d statements. got=%d\n",
-				1, len(program.Statements))
+		if len(program.BlockItems) != 1 {
+			t.Fatalf("program.BlockItems does not contain %d statements. got=%d\n",
+				1, len(program.BlockItems))
 		}
-		stmt, ok := program.Statements[0].(*ast.ExprStatement)
+		stmt, ok := program.BlockItems[0].(*ast.ExprStatement)
 		if !ok {
-			t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T",
-				program.Statements[0])
+			t.Fatalf("program.BlockItems[0] is not ast.ExpressionStatement. got=%T",
+				program.BlockItems[0])
 		}
 		exp, ok := stmt.Expr.(*ast.PrefixExpression)
 		if !ok {
@@ -144,36 +144,25 @@ func TestOperatorPrecedenceParsing(t *testing.T) {
 	}
 }
 
-func TestIfExpression(t *testing.T) {
-	input := []string{
-		`if (x < y){
-			x 
-		} else { 
-			y 
-		}`,
-		`if (x < y){
-			x 
-		} else {
-			if (x + y) { 
-				y 
-			} else {
-				z
-			}
-		}`,
+func TestIfExpressionWithoutBody(t *testing.T) {
+	input := []struct {
+		code string
+	}{
+		{"if (x < y) return x + 1; else return y; "},
 	}
 	for _, in := range input {
-		r := reader.NewInput(in)
+		r := reader.NewInput(in.code)
 		l := lexer.NewLexer(r)
 		p := NewParser(l)
 		program := p.Parse()
-		if len(program.Statements) != 1 {
+		if len(program.BlockItems) != 1 {
 			t.Fatalf("program.Body does not contain %d statements. got=%d\n",
-				1, len(program.Statements))
+				1, len(program.BlockItems))
 		}
-		stmt, ok := program.Statements[0].(*ast.ExprStatement)
+		stmt, ok := program.BlockItems[0].(*ast.ExprStatement)
 		if !ok {
-			t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T",
-				program.Statements[0])
+			t.Fatalf("program.BlockItems[0] is not ast.ExpressionStatement. got=%T",
+				program.BlockItems[0])
 		}
 		exp, ok := stmt.Expr.(*ast.IfExpression)
 		if !ok {
@@ -183,21 +172,103 @@ func TestIfExpression(t *testing.T) {
 		if !testInfixExpression(t, exp.Condition, "x", "<", "y") {
 			return
 		}
-		if len(exp.TrueBlockCondition.Statements) != 1 {
-			t.Errorf("consequence is not 1 statements. got=%d\n",
-				len(exp.TrueBlockCondition.Statements))
+		if exp.TrueBlockCondition == nil {
+			t.Errorf("consequence is nil")
+			return
 		}
-		_, ok = exp.TrueBlockCondition.Statements[0].(*ast.ExprStatement)
+		_, ok = exp.TrueBlockCondition.(*ast.ExprStatement)
 		if !ok {
-			t.Fatalf("Statements[0] is not ast.ExpressionStatement. got=%T",
-				exp.TrueBlockCondition.Statements[0])
+			t.Fatalf("BlockItems[0] is not ast.ExpressionStatement. got=%T",
+				exp.TrueBlockCondition)
 		}
 		if exp.FalseBlockCondition != nil {
-			_, ok := exp.FalseBlockCondition.Statements[0].(*ast.ExprStatement)
+			_, ok := exp.FalseBlockCondition.(*ast.ExprStatement)
 			if !ok {
-				t.Fatalf("Statements[0] is not ast.ExpressionStatement. got=%T",
-					exp.FalseBlockCondition.Statements[0])
+				t.Fatalf("BlockItems[0] is not ast.ExpressionStatement. got=%T",
+					exp.FalseBlockCondition)
 			}
+		}
+	}
+}
+
+func TestIfExpressionWithBlockStatement(t *testing.T) {
+	input := []struct {
+		code string
+	}{
+		{"if (x < y) { x + 1 } else if x + y { x } else { y }"},
+	}
+	for _, in := range input {
+		r := reader.NewInput(in.code)
+		l := lexer.NewLexer(r)
+		p := NewParser(l)
+		program := p.Parse()
+		if len(program.BlockItems) != 1 {
+			t.Fatalf("program.Body does not contain %d statements. got=%d\n",
+				1, len(program.BlockItems))
+		}
+		stmt, ok := program.BlockItems[0].(*ast.ExprStatement)
+		if !ok {
+			t.Fatalf("program.BlockItems[0] is not ast.ExpressionStatement. got=%T",
+				program.BlockItems[0])
+		}
+		exp, ok := stmt.Expr.(*ast.IfExpression)
+		if !ok {
+			t.Fatalf("stmt.Expression is not ast.IfExpression. got=%T",
+				stmt.Expr)
+		}
+		if !testInfixExpression(t, exp.Condition, "x", "<", "y") {
+			return
+		}
+		if exp.TrueBlockCondition == nil {
+			t.Errorf("consequence is nil")
+			return
+		}
+		_, ok = exp.TrueBlockCondition.(*ast.BlockStatement)
+		if !ok {
+			t.Fatalf("BlockItems[0] is not ast.ExpressionStatement. got=%T",
+				exp.TrueBlockCondition)
+		}
+		if exp.FalseBlockCondition != nil {
+			_, ok := exp.FalseBlockCondition.(*ast.BlockStatement)
+			if !ok {
+				t.Fatalf("BlockItems[0] is not ast.ExpressionStatement. got=%T",
+					exp.FalseBlockCondition)
+			}
+		}
+	}
+}
+
+func TestDeclarationParsing(t *testing.T) {
+	tests := []struct {
+		input              string
+		expectedIdentifier string
+		expextedValue      interface{}
+	}{
+		{"var x = 1", "x", 1},
+		{"var boolit = true", "boolit", true},
+		{"var real = 1.5", "real", 1.5},
+	}
+	for _, tt := range tests {
+		r := reader.NewInput(tt.input)
+		l := lexer.NewLexer(r)
+		p := NewParser(l)
+		program := p.Parse()
+		if len(program.BlockItems) != 1 {
+			t.Fatalf("program.BlockItems does not contain %d statements. got=%d\n",
+				1, len(program.BlockItems))
+		}
+		decl, ok := program.BlockItems[0].(*ast.Declaration)
+		if !ok {
+			t.Fatalf("program.BlockItems[0] is not ast.Declaration. got=%T",
+				program.BlockItems[0])
+		}
+		if decl.ID.Value != tt.expectedIdentifier {
+			t.Fatalf("Unexpected identifier. got=%T",
+				decl.ID.Value)
+		}
+
+		if !testLiteral(t, decl.Value, tt.expextedValue) {
+			return
 		}
 	}
 }

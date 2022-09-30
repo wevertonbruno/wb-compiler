@@ -17,7 +17,19 @@ type Node interface {
 
 type Stmt interface {
 	Node
+	BlockItem
 	statementNode()
+}
+
+type Decl interface {
+	Node
+	BlockItem
+	declarationNode()
+}
+
+type BlockItem interface {
+	Node
+	blockItemNode()
 }
 
 type Expr interface {
@@ -31,13 +43,12 @@ type Func interface {
 }
 
 type Prog struct {
-	Statements []Stmt
+	BlockItems []BlockItem
 }
 
-type DeclStatement struct {
+type Declaration struct {
 	Token token.Token
 	ID    *Identifier
-	Type  token.Token
 	Value Expr
 }
 
@@ -58,7 +69,7 @@ type ExprStatement struct {
 
 type BlockStatement struct {
 	Token      token.Token
-	Statements []Stmt
+	Statements []BlockItem
 }
 
 type PrefixExpression struct {
@@ -75,8 +86,8 @@ type InfixExpression struct {
 type IfExpression struct {
 	Token               token.Token
 	Condition           Expr
-	TrueBlockCondition  *BlockStatement
-	FalseBlockCondition *BlockStatement
+	TrueBlockCondition  Stmt
+	FalseBlockCondition Stmt
 }
 
 // ========= LITERALS ============
@@ -106,17 +117,16 @@ func (ls *Boolean) String() string        { return ls.Token.Spelling }
 
 func (p *Prog) String() string {
 	out := bytes.Buffer{}
-	for _, v := range p.Statements {
+	for _, v := range p.BlockItems {
 		out.WriteString(v.String())
 	}
 	return out.String()
 }
 
-func (ls *DeclStatement) String() string {
+func (ls *Declaration) String() string {
 	out := bytes.Buffer{}
 	out.WriteString(ls.TokenLiteral() + " ")
-	out.WriteString(ls.ID.String() + " : ")
-	out.WriteString(ls.Type.Spelling + " = ")
+	out.WriteString(ls.ID.String() + " = ")
 	if ls.Value != nil {
 		out.WriteString(ls.Value.String())
 	}
@@ -175,13 +185,13 @@ func (ls *BlockStatement) String() string {
 //Node
 
 func (p *Prog) TokenLiteral() string {
-	if len(p.Statements) > 0 {
-		return p.Statements[0].TokenLiteral()
+	if len(p.BlockItems) > 0 {
+		return p.BlockItems[0].TokenLiteral()
 	} else {
 		return ""
 	}
 }
-func (ls *DeclStatement) TokenLiteral() string    { return ls.Token.Spelling }
+func (ls *Declaration) TokenLiteral() string      { return ls.Token.Spelling }
 func (ls *Identifier) TokenLiteral() string       { return ls.Token.Spelling }
 func (ls *ReturnStatement) TokenLiteral() string  { return ls.Token.Spelling }
 func (ls *ExprStatement) TokenLiteral() string    { return ls.Token.Spelling }
@@ -194,7 +204,6 @@ func (ls *DecimalLiteral) TokenLiteral() string   { return ls.Token.Spelling }
 func (ls *Boolean) TokenLiteral() string          { return ls.Token.Spelling }
 
 // Statement
-func (ls *DeclStatement) statementNode()   {}
 func (ls *Identifier) statementNode()      {}
 func (ls *ReturnStatement) statementNode() {}
 func (ls *ExprStatement) statementNode()   {}
@@ -208,3 +217,10 @@ func (ls *Boolean) expressionNode()          {}
 func (ls *PrefixExpression) expressionNode() {}
 func (ls *InfixExpression) expressionNode()  {}
 func (ls *IfExpression) expressionNode()     {}
+
+// blockItem
+func (ls *Identifier) blockItemNode()      {}
+func (ls *ReturnStatement) blockItemNode() {}
+func (ls *ExprStatement) blockItemNode()   {}
+func (ls *BlockStatement) blockItemNode()  {}
+func (ls *Declaration) blockItemNode()     {}
