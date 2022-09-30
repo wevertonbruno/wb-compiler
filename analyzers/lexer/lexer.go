@@ -1,4 +1,4 @@
-package analyzers
+package lexer
 
 import (
 	"fmt"
@@ -13,18 +13,15 @@ const (
 )
 
 type Lexer struct {
-	file      *reader.File
-	debugMode bool
+	reader reader.Reader
 
 	currentChar     byte
 	currentSpelling string
 }
 
-func NewLexer(src string, debugMode bool) *Lexer {
-	file := reader.NewFile(src)
+func NewLexer(reader reader.Reader) *Lexer {
 	lexer := &Lexer{
-		file:            file,
-		debugMode:       debugMode,
+		reader:          reader,
 		currentChar:     byte(0),
 		currentSpelling: "",
 	}
@@ -32,64 +29,68 @@ func NewLexer(src string, debugMode bool) *Lexer {
 	return lexer
 }
 
-func (l *Lexer) GetToken() (token.Token, error) {
+func (l *Lexer) GetToken() token.Token {
 	l.skipWhiteSpace()
 	l.skipComment()
 	defer l.next()
 
 	switch l.currentChar {
 	case '+':
-		return token.NewToken(token.OP_PLUS, l.file.CurrentPosition), nil
+		return token.NewToken(token.OP_PLUS, l.reader.CurrentPosition())
 	case '-':
-		return token.NewToken(token.OP_MINUS, l.file.CurrentPosition), nil
+		return token.NewToken(token.OP_MINUS, l.reader.CurrentPosition())
 	case '*':
-		return token.NewToken(token.OP_MULTI, l.file.CurrentPosition), nil
+		return token.NewToken(token.OP_MULTI, l.reader.CurrentPosition())
 	case '/':
-		return token.NewToken(token.OP_DIVIDE, l.file.CurrentPosition), nil
+		return token.NewToken(token.OP_DIVIDE, l.reader.CurrentPosition())
 	case '(':
-		return token.NewToken(token.L_BRACKET, l.file.CurrentPosition), nil
+		return token.NewToken(token.L_BRACKET, l.reader.CurrentPosition())
 	case ')':
-		return token.NewToken(token.R_BRACKET, l.file.CurrentPosition), nil
+		return token.NewToken(token.R_BRACKET, l.reader.CurrentPosition())
 	case '{':
-		return token.NewToken(token.L_BRACE, l.file.CurrentPosition), nil
+		return token.NewToken(token.L_BRACE, l.reader.CurrentPosition())
 	case '}':
-		return token.NewToken(token.R_BRACE, l.file.CurrentPosition), nil
+		return token.NewToken(token.R_BRACE, l.reader.CurrentPosition())
+	case ':':
+		return token.NewToken(token.COLON, l.reader.CurrentPosition())
+	case ';':
+		return token.NewToken(token.SEMICOLON, l.reader.CurrentPosition())
 	case reader.EOL:
-		return token.NewToken(token.NEWLINE, l.file.CurrentPosition), nil
+		return token.NewToken(token.NEWLINE, l.reader.CurrentPosition())
 	case reader.EOF:
-		return token.NewToken(token.EOF, l.file.CurrentPosition), nil
+		return token.NewToken(token.EOF, l.reader.CurrentPosition())
 	case '=':
 		//Check if next character is an eq symbol
 		if l.peek() == '=' {
 			l.next()
-			return token.NewToken(token.OP_EQ, l.file.CurrentPosition), nil
+			return token.NewToken(token.OP_EQ, l.reader.CurrentPosition())
 		} else {
-			return token.NewToken(token.ASSIGN, l.file.CurrentPosition), nil
+			return token.NewToken(token.ASSIGN, l.reader.CurrentPosition())
 		}
 	case '>':
 		if l.peek() == '=' {
 			l.next()
-			return token.NewToken(token.OP_GTE, l.file.CurrentPosition), nil
+			return token.NewToken(token.OP_GTE, l.reader.CurrentPosition())
 		} else {
-			return token.NewToken(token.OP_GT, l.file.CurrentPosition), nil
+			return token.NewToken(token.OP_GT, l.reader.CurrentPosition())
 		}
 	case '<':
 		if l.peek() == '=' {
 			l.next()
-			return token.NewToken(token.OP_LTE, l.file.CurrentPosition), nil
+			return token.NewToken(token.OP_LTE, l.reader.CurrentPosition())
 		} else {
-			return token.NewToken(token.OP_LT, l.file.CurrentPosition), nil
+			return token.NewToken(token.OP_LT, l.reader.CurrentPosition())
 		}
 	case '!':
 		if l.peek() == '=' {
 			l.next()
-			return token.NewToken(token.OP_NOTEQ, l.file.CurrentPosition), nil
+			return token.NewToken(token.OP_NOTEQ, l.reader.CurrentPosition())
 		} else {
-			return token.Token{}, l.abort("Expected !=, got !" + string(l.peek()))
+			return token.NewToken(token.NOT, l.reader.CurrentPosition())
 		}
 	case '"':
 		var str []byte
-		pos := l.file.CurrentPosition
+		pos := l.reader.CurrentPosition()
 		if l.peek() != '"' {
 			l.next()
 			for l.currentChar != '"' {
@@ -97,11 +98,11 @@ func (l *Lexer) GetToken() (token.Token, error) {
 				l.next()
 			}
 		}
-		return token.NewTokenString(token.STRING, string(str), pos), nil
+		return token.NewTokenString(token.STRINGLIT, string(str), pos)
 	default:
 		if isDigit(l.currentChar) { // Check for numbers
 			var number []byte
-			pos := l.file.CurrentPosition
+			pos := l.reader.CurrentPosition()
 			number = append(number, l.currentChar)
 			for isDigit(l.peek()) {
 				l.next()
@@ -111,39 +112,42 @@ func (l *Lexer) GetToken() (token.Token, error) {
 				l.next()
 				number = append(number, l.currentChar)
 				if !isDigit(l.peek()) {
-					return token.Token{}, l.abort("Illegal character in number: " + string(number) + string(l.peek()))
+					l.abort("Illegal character in number: " + string(number) + string(l.peek()))
 				}
+				for isDigit(l.peek()) {
+					l.next()
+					number = append(number, l.currentChar)
+				}
+				return token.NewTokenString(token.DECIMALLIT, string(number), pos)
+			} else {
+				return token.NewTokenString(token.INTLIT, string(number), pos)
 			}
-			for isDigit(l.peek()) {
-				l.next()
-				number = append(number, l.currentChar)
-			}
-			return token.NewTokenString(token.NUMBER, string(number), pos), nil
 		} else if isAlpha(l.currentChar) { // Check for Identifiers
 			var id []byte
-			pos := l.file.CurrentPosition
+			pos := l.reader.CurrentPosition()
 			id = append(id, l.currentChar)
 			for isAlphaNumeric(l.peek()) {
 				l.next()
 				id = append(id, l.currentChar)
 			}
-			return token.NewTokenString(token.IDENTIFIER, string(id), pos), nil
+			return token.NewTokenString(token.IDENTIFIER, string(id), pos)
 		} else {
-			return token.Token{}, l.abort("Unknown token: " + string(l.currentChar))
+			l.abort("Unknown token: " + string(l.currentChar))
 		}
 	}
+	return token.Token{}
 }
 
 func (l *Lexer) next() {
-	l.currentChar = l.file.Read()
+	l.currentChar = l.reader.Read()
 }
 
 func (l *Lexer) peek() byte {
-	return l.file.Peek()
+	return l.reader.Peek()
 }
 
 func (l *Lexer) abort(message string) error {
-	return fmt.Errorf(lexicalError, message)
+	panic(fmt.Errorf(lexicalError, message))
 }
 
 func (l *Lexer) skipWhiteSpace() {

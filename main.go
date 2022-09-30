@@ -1,23 +1,14 @@
 package main
 
 import (
-	"fmt"
-	"github.com/wevertonbruno/wb-compiler/analyzers"
-	"github.com/wevertonbruno/wb-compiler/analyzers/token"
+	"github.com/wevertonbruno/wb-compiler/analyzers/lexer"
+	"github.com/wevertonbruno/wb-compiler/analyzers/parser"
+	"github.com/wevertonbruno/wb-compiler/analyzers/reader"
 )
 
 func main() {
-	lexer := analyzers.NewLexer("test_code.wb", true)
-	t, err := lexer.GetToken()
-	if err != nil {
-		panic(err)
-	}
-
-	for t.Kind != token.EOF {
-		fmt.Println(t)
-		t, err = lexer.GetToken()
-		if err != nil {
-			panic(err)
-		}
-	}
+	_reader := reader.NewFile("test_code.wb")
+	_lexer := lexer.NewLexer(_reader)
+	_parser := parser.NewParser(_lexer)
+	_parser.Parse()
 }
