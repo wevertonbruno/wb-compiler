@@ -202,6 +202,40 @@ func TestIfExpression(t *testing.T) {
 	}
 }
 
+func TestDeclarationParsing(t *testing.T) {
+	input := []struct {
+		code  string
+		id    string
+		value interface{}
+	}{
+		{`var x = 1`, "x", 1},
+		{`var x = true`, "x", true},
+		{`var x = 1.5`, "x", 1.5},
+	}
+	for _, in := range input {
+		r := reader.NewInput(in.code)
+		l := lexer.NewLexer(r)
+		p := NewParser(l)
+		program := p.Parse()
+		if len(program.Statements) != 1 {
+			t.Fatalf("program.Body does not contain %d statements. got=%d\n",
+				1, len(program.Statements))
+		}
+		decl, ok := program.Statements[0].(*ast.DeclStatement)
+		if !ok {
+			t.Fatalf("Statement isn't Declaration. got=%T\n",
+				program.Statements[0])
+		}
+		if !testLiteral(t, decl.Value, in.value) {
+			return
+		}
+
+		if !testLiteral(t, decl.ID, in.id) {
+			return
+		}
+	}
+}
+
 func testLiteral(t *testing.T, il ast.Expr, value interface{}) bool {
 	switch v := value.(type) {
 	case bool:

@@ -37,7 +37,6 @@ type Prog struct {
 type DeclStatement struct {
 	Token token.Token
 	ID    *Identifier
-	Type  token.Token
 	Value Expr
 }
 
@@ -115,8 +114,7 @@ func (p *Prog) String() string {
 func (ls *DeclStatement) String() string {
 	out := bytes.Buffer{}
 	out.WriteString(ls.TokenLiteral() + " ")
-	out.WriteString(ls.ID.String() + " : ")
-	out.WriteString(ls.Type.Spelling + " = ")
+	out.WriteString(ls.ID.String() + " = ")
 	if ls.Value != nil {
 		out.WriteString(ls.Value.String())
 	}

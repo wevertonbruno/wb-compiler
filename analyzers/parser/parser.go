@@ -219,13 +219,9 @@ func (p *Parser) parseVarStatement() *ast.DeclStatement {
 	stmt := &ast.DeclStatement{Token: p.currentToken}
 	p.expectedPeek(token.IDENTIFIER)
 	stmt.ID = &ast.Identifier{Token: p.currentToken, Value: p.currentToken.Spelling}
-	p.expectedPeek(token.COLON)
-	p.nextToken(false)
-	if p.checkPeek(token.INTEGER) || p.checkPeek(token.DECIMAL) || p.checkPeek(token.STRING) || p.checkPeek(token.CHAR) {
-		p.nextToken(false)
-		stmt.Type = p.currentToken
-	}
 	p.expectedPeek(token.ASSIGN)
+	p.nextToken(false)
+
 	stmt.Value = p.parseExpression(LOWEST)
 	if p.checkSeparator() {
 		p.nextToken(false)
