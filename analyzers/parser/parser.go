@@ -6,6 +6,7 @@ import (
 	"github.com/wevertonbruno/wb-compiler/analyzers/token"
 	"github.com/wevertonbruno/wb-compiler/ast"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -35,6 +36,7 @@ var (
 		token.OP_MINUS:  SUM,
 		token.OP_DIVIDE: PRODUCT,
 		token.OP_MULTI:  PRODUCT,
+		token.L_BRACKET: CALL,
 	}
 )
 
@@ -68,6 +70,7 @@ func NewParser(lex *lexer.Lexer) *Parser {
 	parser.registerPrefix(token.OP_MINUS, parser.parsePrefixExpr)
 	parser.registerPrefix(token.L_BRACKET, parser.parseGroupedExpr)
 	parser.registerPrefix(token.IF, parser.parseIfExpr)
+	parser.registerPrefix(token.FUNCTION, parser.parseFunctionLiteral)
 
 	parser.infixParseFn = make(map[token.Kind]infixParseFn)
 	parser.registerInfix(token.OP_PLUS, parser.parseInfixExpr)
@@ -80,6 +83,7 @@ func NewParser(lex *lexer.Lexer) *Parser {
 	parser.registerInfix(token.OP_LTE, parser.parseInfixExpr)
 	parser.registerInfix(token.OP_GT, parser.parseInfixExpr)
 	parser.registerInfix(token.OP_GTE, parser.parseInfixExpr)
+	parser.registerInfix(token.L_BRACKET, parser.parseCallExpr)
 
 	return parser
 }
@@ -96,19 +100,16 @@ func (p *Parser) nextToken(ignoreNewLine bool) {
 }
 
 func (p *Parser) match(kinds ...token.Kind) {
-	var errMessage string
-	for i, k := range kinds {
+	var _kinds []string
+	for _, k := range kinds {
 		if p.currentToken.Match(k) {
 			p.nextToken(false)
 			return
 		}
-		errMessage += k.Name()
-		if i < len(kinds) {
-			errMessage += " or "
-		}
+		_kinds = append(_kinds, k.Name())
 	}
 
-	p.abort(fmt.Sprintf(expectedError, errMessage, p.currentToken.Kind.Name()))
+	p.abort(fmt.Sprintf(expectedError, strings.Join(_kinds, ", "), p.currentToken.Kind.Name()))
 }
 
 func (p *Parser) expectedPeek(kind token.Kind) {
@@ -163,7 +164,6 @@ func (p *Parser) Parse() *ast.Prog {
 		}
 		p.nextToken(true)
 	}
-	fmt.Println(prog)
 	return prog
 }
 
@@ -224,7 +224,7 @@ func (p *Parser) parseVarStatement() *ast.DeclStatement {
 
 	stmt.Value = p.parseExpression(LOWEST)
 	if p.checkSeparator() {
-		p.nextToken(false)
+		p.nextToken(true)
 	}
 
 	return stmt
@@ -234,9 +234,9 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 	ret := &ast.ReturnStatement{
 		Token: p.currentToken,
 	}
-	for !p.checkSeparator() {
-		p.nextToken(false)
-	}
+	p.nextToken(false)
+	ret.Expr = p.parseExpression(LOWEST)
+	p.expectedPeek(token.SEMICOLON)
 
 	return ret
 }
@@ -354,4 +354,62 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	}
 
 	return block
+}
+
+func (p *Parser) parseFunctionLiteral() ast.Expr {
+	lit := &ast.FunctionLiteral{Token: p.currentToken}
+	p.expectedPeek(token.L_BRACKET)
+	lit.Parameters = p.parseFunctionParameters()
+	p.expectedPeek(token.L_BRACE)
+	lit.Body = p.parseBlockStatement()
+	return lit
+}
+
+func (p *Parser) parseFunctionParameters() []*ast.Identifier {
+	var identifiers []*ast.Identifier
+	if p.checkPeek(token.R_BRACKET) {
+		p.nextToken(false)
+		return identifiers
+	}
+	p.nextToken(true)
+	ident := &ast.Identifier{Token: p.currentToken, Value: p.currentToken.Spelling}
+	identifiers = append(identifiers, ident)
+	for p.checkPeek(token.COMMA) {
+		p.nextToken(false)
+		p.nextToken(true)
+		ident := &ast.Identifier{Token: p.currentToken, Value: p.currentToken.Spelling}
+		identifiers = append(identifiers, ident)
+	}
+	for p.checkPeek(token.NEWLINE) {
+		p.nextToken(false)
+	}
+	p.expectedPeek(token.R_BRACKET)
+	return identifiers
+}
+
+func (p *Parser) parseCallExpr(function ast.Expr) ast.Expr {
+	exp := &ast.CallExpression{Token: p.currentToken, Function: function}
+	exp.Arguments = p.parseCallArguments()
+	return exp
+}
+
+func (p *Parser) parseCallArguments() []ast.Expr {
+	args := []ast.Expr{}
+	if p.checkPeek(token.R_BRACKET) {
+		p.nextToken(false)
+		return args
+	}
+	p.nextToken(true)
+	args = append(args, p.parseExpression(LOWEST))
+	for p.checkPeek(token.COMMA) {
+		p.nextToken(false)
+		p.nextToken(true)
+		args = append(args, p.parseExpression(LOWEST))
+	}
+
+	for p.checkPeek(token.NEWLINE) {
+		p.nextToken(false)
+	}
+	p.expectedPeek(token.R_BRACKET)
+	return args
 }

@@ -55,6 +55,8 @@ func (l *Lexer) GetToken() token.Token {
 		return token.NewToken(token.COLON, l.reader.CurrentPosition())
 	case ';':
 		return token.NewToken(token.SEMICOLON, l.reader.CurrentPosition())
+	case ',':
+		return token.NewToken(token.COMMA, l.reader.CurrentPosition())
 	case reader.EOL:
 		return token.NewToken(token.NEWLINE, l.reader.CurrentPosition())
 	case reader.EOF:

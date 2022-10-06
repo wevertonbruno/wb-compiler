@@ -50,7 +50,7 @@ const (
 	R_BRACKET
 	L_BRACE
 	R_BRACE
-
+	COMMA
 	ERROR
 	EOF
 )
@@ -100,6 +100,7 @@ var (
 		R_BRACKET: ")",
 		L_BRACE:   "{",
 		R_BRACE:   "}",
+		COMMA:     ",",
 		ERROR:     "<error>",
 		EOF:       "<eof>",
 	}

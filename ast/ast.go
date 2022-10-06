@@ -3,6 +3,7 @@ package ast
 import (
 	"bytes"
 	"github.com/wevertonbruno/wb-compiler/analyzers/token"
+	"strings"
 )
 
 /**
@@ -78,6 +79,12 @@ type IfExpression struct {
 	FalseBlockCondition *BlockStatement
 }
 
+type CallExpression struct {
+	Token     token.Token
+	Function  Expr
+	Arguments []Expr
+}
+
 // ========= LITERALS ============
 
 type IntegerLiteral struct {
@@ -93,6 +100,12 @@ type DecimalLiteral struct {
 type Boolean struct {
 	Token token.Token
 	Value bool
+}
+
+type FunctionLiteral struct {
+	Token      token.Token
+	Parameters []*Identifier
+	Body       *BlockStatement
 }
 
 // ========= IMPLEMENTATION ============
@@ -170,8 +183,34 @@ func (ls *BlockStatement) String() string {
 	return out.String()
 }
 
-//Node
+func (ls *FunctionLiteral) String() string {
+	out := bytes.Buffer{}
+	params := []string{}
+	for _, p := range ls.Parameters {
+		params = append(params, p.String())
+	}
+	out.WriteString(ls.TokenLiteral())
+	out.WriteString("(")
+	out.WriteString(strings.Join(params, ", "))
+	out.WriteString(") ")
+	out.WriteString(ls.Body.String())
+	return out.String()
+}
 
+func (ce *CallExpression) String() string {
+	var out bytes.Buffer
+	args := []string{}
+	for _, a := range ce.Arguments {
+		args = append(args, a.String())
+	}
+	out.WriteString(ce.Function.String())
+	out.WriteString("(")
+	out.WriteString(strings.Join(args, ", "))
+	out.WriteString(")")
+	return out.String()
+}
+
+//Node
 func (p *Prog) TokenLiteral() string {
 	if len(p.Statements) > 0 {
 		return p.Statements[0].TokenLiteral()
@@ -190,6 +229,8 @@ func (ls *IfExpression) TokenLiteral() string     { return ls.Token.Spelling }
 func (ls *IntegerLiteral) TokenLiteral() string   { return ls.Token.Spelling }
 func (ls *DecimalLiteral) TokenLiteral() string   { return ls.Token.Spelling }
 func (ls *Boolean) TokenLiteral() string          { return ls.Token.Spelling }
+func (ls *FunctionLiteral) TokenLiteral() string  { return ls.Token.Spelling }
+func (ls *CallExpression) TokenLiteral() string   { return ls.Token.Spelling }
 
 // Statement
 func (ls *DeclStatement) statementNode()   {}
@@ -206,3 +247,5 @@ func (ls *Boolean) expressionNode()          {}
 func (ls *PrefixExpression) expressionNode() {}
 func (ls *InfixExpression) expressionNode()  {}
 func (ls *IfExpression) expressionNode()     {}
+func (ls *FunctionLiteral) expressionNode()  {}
+func (ls *CallExpression) expressionNode()   {}
